@@ -1,0 +1,1 @@
+C:\Users\User\Desktop\rust\json_parser\target\debug\json_parser.exe: C:\Users\User\Desktop\rust\json_parser\src\json.pest C:\Users\User\Desktop\rust\json_parser\src\lib.rs C:\Users\User\Desktop\rust\json_parser\src\main.rs

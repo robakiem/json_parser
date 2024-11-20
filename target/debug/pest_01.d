@@ -1,0 +1,1 @@
+C:\Users\User\Desktop\rust\pest_01-main\target\debug\pest_01.exe: C:\Users\User\Desktop\rust\pest_01-main\src\json.pest C:\Users\User\Desktop\rust\pest_01-main\src\lib.rs C:\Users\User\Desktop\rust\pest_01-main\src\main.rs

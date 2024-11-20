@@ -1,0 +1,49 @@
+// Allows whitespace characters (space, tab, carriage return, newline)
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+// Entire JSON document must start and end with a complete object or array
+json = { SOI ~ (object | array) ~ EOI }
+
+// Object definition: starts with '{', optionally contains pairs, 
+// allows multiple pairs separated by commas, ends with '}'
+object = { "{" ~ pair? ~ ("," ~ pair)* ~ "}" }
+
+// Pair is a key-value combination: string key followed by ':' and a value
+pair = { string ~ ":" ~ value }
+
+// Array definition: starts with '[', optionally contains values, 
+// allows multiple values separated by commas, ends with ']'
+array = { "[" ~ value? ~ ("," ~ value)* ~ "]" }
+
+// Value can be one of several types: string, number, object, array, boolean, or null
+value = _{ string | number | object | array | boolean | null }
+
+// String definition: enclosed in double quotes with inner character parsing
+string = ${ "\"" ~ inner ~ "\"" }
+
+// Inner string content allows various character types
+inner = @{ char* }
+
+// Character parsing rules: normal characters, escaped characters, and unicode escapes
+char = {
+    // Any character not a quote or backslash
+    !("\"" | "\\") ~ ANY
+    // Standard JSON escape sequences
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    // Unicode escape sequence (4 hex digits)
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+// Number parsing: optional negative sign, integer part, optional fractional part, optional exponent
+number = @{ 
+    "-"?                            // Optional negative sign
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)  // Integer part
+    ~ ("." ~ ASCII_DIGIT+)?         // Optional fractional part
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?  // Optional exponent
+}
+
+// Boolean values
+boolean = { "true" | "false" }
+
+// Null value
+null = { "null" }
