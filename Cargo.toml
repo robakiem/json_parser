@@ -1,8 +1,8 @@
 [package]
 name = "json_parser"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
-description = ""
+description = "My own json parser using rust + pest for learning purpose."
 authors = ["Bahriantsev Ivan"]
 
 [dependencies]

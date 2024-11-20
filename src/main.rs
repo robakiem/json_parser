@@ -2,7 +2,7 @@ use std::env;
 use json_parser::JsonDocument;
 
 fn print_help() {
-    println!("JSON Validator CLI");
+    println!("JSON Parser using Pest!");
     println!("Usage: cargo run <file_path>");
     println!("Options:");
     println!("  --help    Show this help message");

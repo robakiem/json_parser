@@ -1,3 +1,7 @@
+//! # JSON Validator
+//!
+//! This library provides a parser for validating JSON structures.
+
 use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
@@ -17,7 +21,7 @@ pub struct JsonDocument {
 }
 
 /// Represents the type of the root JSON element
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum JsonRootType {
     Object,
     Array,
@@ -27,8 +31,17 @@ pub enum JsonRootType {
 #[derive(Error, Debug)]
 pub enum JsonParseError {
     /// Error returned when parsing fails.
-    #[error("Parsing error: {0}")]
-    PestError(#[from] pest::error::Error<Rule>),
+    #[error("Parsing error: {source}")]
+    PestError {
+        #[from]
+        source: pest::error::Error<Rule>,
+    },
+    /// Error for an empty JSON input.
+    #[error("Empty JSON input provided.")]
+    EmptyJson,
+    /// Error for unexpected root type.
+    #[error("Unexpected root type: {0}")]
+    UnexpectedRootType(String),
 }
 
 impl JsonDocument {
@@ -42,36 +55,39 @@ impl JsonDocument {
     ///
     /// Returns a `JsonParseError` if the input does not conform to JSON grammar.
     pub fn parse(input: &str) -> Result<Self, JsonParseError> {
-        let pairs = JsonParser::parse(Rule::json, input.trim())?;
-        
+        let trimmed_input = input.trim();
+        if trimmed_input.is_empty() {
+            return Err(JsonParseError::EmptyJson);
+        }
+
+        let pairs = JsonParser::parse(Rule::json, trimmed_input)?;
+
         // Get the first pair (root)
-        let root = pairs.into_iter().next().ok_or_else(|| {
-            pest::error::Error::new_from_span(
-                pest::error::ErrorVariant::CustomError { message: "Empty JSON".to_string() },
-                pest::Span::new(input, 0, 0).unwrap()
-            )
-        })?;
+        let root = pairs.into_iter().next().ok_or(JsonParseError::EmptyJson)?;
+
+        // Drill down to the actual root element inside the `json` rule
+        let root = root.into_inner().next().ok_or(JsonParseError::EmptyJson)?;
 
         let root_type = match root.as_rule() {
             Rule::object => JsonRootType::Object,
             Rule::array => JsonRootType::Array,
-            _ => return Err(pest::error::Error::new_from_span(
-                pest::error::ErrorVariant::CustomError { 
-                    message: format!("Unexpected root type: {:?}", root.as_rule()) 
-                },
-                root.as_span()
-            ).into()),
+            _ => {
+                return Err(JsonParseError::UnexpectedRootType(format!(
+                    "{:?}",
+                    root.as_rule()
+                )));
+            }
         };
 
         Ok(JsonDocument {
-            content: input.trim().to_string(),
+            content: trimmed_input.to_string(),
             root_type,
         })
     }
 
-    /// Checks if the JSON document is valid without creating a full document
+    /// Checks if the JSON document is valid without creating a full document.
     pub fn is_valid(input: &str) -> bool {
-        JsonParser::parse(Rule::json, input.trim()).is_ok()
+        !input.trim().is_empty() && JsonParser::parse(Rule::json, input.trim()).is_ok()
     }
 }
 
@@ -85,7 +101,7 @@ mod tests {
         let doc = JsonDocument::parse(json);
         assert!(doc.is_ok());
         if let Ok(doc) = doc {
-            assert!(matches!(doc.root_type, JsonRootType::Object));
+            assert_eq!(doc.root_type, JsonRootType::Object);
         }
     }
 
@@ -95,13 +111,46 @@ mod tests {
         let doc = JsonDocument::parse(json);
         assert!(doc.is_ok());
         if let Ok(doc) = doc {
-            assert!(matches!(doc.root_type, JsonRootType::Array));
+            assert_eq!(doc.root_type, JsonRootType::Array);
         }
+    }
+
+    #[test]
+    fn test_empty_json() {
+        let json = r#"  "#;
+        assert!(matches!(
+            JsonDocument::parse(json),
+            Err(JsonParseError::EmptyJson)
+        ));
     }
 
     #[test]
     fn test_invalid_json() {
         let json = r#"{"name": "test", "value": }"#;
-        assert!(JsonDocument::parse(json).is_err());
+        assert!(matches!(
+            JsonDocument::parse(json),
+            Err(JsonParseError::PestError { .. })
+        ));
+    }
+
+    #[test]
+    fn test_unexpected_root_type() {
+        // Assuming `Rule::json` doesn't accept primitive values like `true` as root
+        let json = r#"true"#;
+        assert!(matches!(
+            JsonDocument::parse(json),
+            Err(JsonParseError::UnexpectedRootType(_))
+        ));
+    }
+
+    #[test]
+    fn test_is_valid() {
+        let valid_json = r#"{"key": "value"}"#;
+        let invalid_json = r#"{"key": "value",}"#;
+        let empty_json = r#"   "#;
+
+        assert!(JsonDocument::is_valid(valid_json));
+        assert!(!JsonDocument::is_valid(invalid_json));
+        assert!(!JsonDocument::is_valid(empty_json));
     }
 }
